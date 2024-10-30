@@ -108,22 +108,30 @@ func updateTraffic(list []DeviceType) {
 	} else {
 		limit, _ = strconv.ParseInt(limitStr, 10, 64)
 	}
-	fmt.Println(limit)
+
 	skipStr := strings.ReplaceAll(getConfigValue("skiplist", ""), " ", "")
 	skipList := strings.Split(skipStr, ",")
 
 	for _, item := range list {
-		fmt.Println(item.Mac, codeutils.FormatFloatCommas(float64(item.Total), 0))
+		used := codeutils.FormatFloatCommas(float64(item.Total)/1024/1024/1024, 1) + "G"
+		if strings.HasPrefix(used, "0.") {
+			used = codeutils.FormatFloatCommas(float64(item.Total/1024/1024), 0) + "M"
+
+		}
+		if used == "0M" {
+			used = codeutils.FormatFloatCommas(float64(item.Total/1024), 0) + "K"
+		}
+		fmt.Printf("%s %10s\n", item.Mac, used)
 
 		skip := checkSkip(skipList, item.Mac)
 		if skip {
-			fmt.Println(item.Mac, "Skipped..")
+			fmt.Println("----------------^-------     Skipped..")
 		} else {
 			if item.Total > limit {
 
 				err := blockMac(item)
 				if err != nil {
-					fmt.Println(err.Error())
+					writeLog(err.Error())
 				}
 			}
 		}
@@ -191,7 +199,7 @@ func process() {
 				}
 			}
 			if counter > 0 && strings.Contains(line, "monitor started") {
-				fmt.Println(line)
+
 				addToGrandTotal(&grandList, list)
 			} else {
 				//	fmt.Println(line)
@@ -231,7 +239,7 @@ func blockMac(device DeviceType) (err error) {
 			err = errors.New(errStr)
 		}
 	} else {
-		writeLog(device.Mac + " Already blocked")
+		writeLog("----------------^-------     Already blocked")
 	}
 	return
 }

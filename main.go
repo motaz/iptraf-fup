@@ -6,6 +6,7 @@ import (
 )
 
 func main() {
-	fmt.Println("Hello World!")
+	fmt.Println("iptraf-fup: Wifi LAN Internet Usage Policy blocker")
+	fmt.Println("MAC                     Usage")
 	process()
 }
