@@ -15,6 +15,16 @@ import (
 	"github.com/motaz/redisaccess"
 )
 
+var Console_Reset = "\033[0m"
+var Console_Red = "\033[31m"
+var Console_Green = "\033[32m"
+var Console_Yellow = "\033[33m"
+var Console_Blue = "\033[34m"
+var Console_Console_Magenta = "\033[35m"
+var Console_Cyan = "\033[36m"
+var Console_Gray = "\033[37m"
+var Console_White = "\033[97m"
+
 func getConfigValue(paramname, defaultvalue string) (value string) {
 	value = codeutils.GetConfigWithDefault("config.ini", paramname, defaultvalue)
 	return
@@ -111,17 +121,23 @@ func updateTraffic(list []DeviceType) {
 
 	skipStr := strings.ReplaceAll(getConfigValue("skiplist", ""), " ", "")
 	skipList := strings.Split(skipStr, ",")
-
+	var color string
+	var measure string
 	for _, item := range list {
-		used := codeutils.FormatFloatCommas(float64(item.Total)/1024/1024/1024, 1) + "G"
+		used := codeutils.FormatFloatCommas(float64(item.Total)/1024/1024/1024, 1)
+		measure = "G"
+		color = Console_Cyan
 		if strings.HasPrefix(used, "0.") {
-			used = codeutils.FormatFloatCommas(float64(item.Total/1024/1024), 0) + "M"
-
+			used = codeutils.FormatFloatCommas(float64(item.Total/1024/1024), 0)
+			measure = "M"
+			color = Console_Yellow
 		}
-		if used == "0M" {
-			used = codeutils.FormatFloatCommas(float64(item.Total/1024), 0) + "K"
+		if used == "0" {
+			used = codeutils.FormatFloatCommas(float64(item.Total/1024), 0)
+			measure = "K"
+			color = Console_Green
 		}
-		fmt.Printf("%s %10s\n", item.Mac, used)
+		fmt.Printf("%s %10s%s%s%s\n", item.Mac, used, color, measure, Console_Reset)
 
 		skip := checkSkip(skipList, item.Mac)
 		if skip {
