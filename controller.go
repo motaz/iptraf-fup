@@ -30,8 +30,11 @@ func getConfigValue(paramname, defaultvalue string) (value string) {
 	return
 }
 
-func writeLog(event string) {
-	fmt.Println(event)
+func writeLog(event string, display bool) {
+
+	if display {
+		fmt.Println(event)
+	}
 	codeutils.WriteToLog(event, "iptraf")
 }
 
@@ -43,6 +46,7 @@ type DeviceType struct {
 }
 
 func searchDevice(mac, day string, list []DeviceType) (found bool, index int) {
+
 	found = false
 	for i, item := range list {
 		if mac == item.Mac && day == item.Day {
@@ -96,13 +100,11 @@ func checkSkip(skipList []string, mac string) (skip bool) {
 	return
 }
 
-func updateTraffic(list []DeviceType) {
+func parseLimit(limitStr string) (limit int64) {
 
-	limitStr := getConfigValue("limit", "500m")
 	limitStr = strings.ReplaceAll(limitStr, " ", "")
 	mtype := strings.ToUpper(limitStr)
 	mtype = mtype[len(mtype)-1:]
-	var limit int64
 	if strings.Contains("KMG", mtype) {
 		limitStr = limitStr[:len(limitStr)-1]
 		limitInt, _ := strconv.Atoi(limitStr)
@@ -118,6 +120,20 @@ func updateTraffic(list []DeviceType) {
 	} else {
 		limit, _ = strconv.ParseInt(limitStr, 10, 64)
 	}
+	return
+}
+
+func getMacLimit(mac string) (limit int64) {
+
+	limitStr := codeutils.GetConfigValue("mac.ini", mac)
+	if strings.TrimSpace(limitStr) == "" {
+		limitStr = getConfigValue("limit", "500m")
+	}
+	limit = parseLimit(limitStr)
+	return
+}
+
+func updateTraffic(list []DeviceType) {
 
 	skipStr := strings.ReplaceAll(getConfigValue("skiplist", ""), " ", "")
 	skipList := strings.Split(skipStr, ",")
@@ -138,16 +154,17 @@ func updateTraffic(list []DeviceType) {
 			color = Console_Green
 		}
 		fmt.Printf("%s %10s%s%s%s\n", item.Mac, used, color, measure, Console_Reset)
-
+		writeLog(fmt.Sprintf("%s %10s%s", item.Mac, used, measure), false)
 		skip := checkSkip(skipList, item.Mac)
 		if skip {
-			fmt.Println("----------------^-------     Skipped..")
+			writeLog("----------------^-------     Skipped..", true)
 		} else {
+			limit := getMacLimit(item.Mac)
 			if item.Total > limit {
 
 				err := blockMac(item)
 				if err != nil {
-					writeLog(err.Error())
+					writeLog(err.Error(), true)
 				}
 			}
 		}
@@ -228,7 +245,7 @@ func process() {
 		updateTraffic(grandList)
 	} else {
 
-		fmt.Println("Error: ", err.Error())
+		writeLog("Error in opening traffic file: "+err.Error(), true)
 
 	}
 
@@ -238,15 +255,15 @@ func blockMac(device DeviceType) (err error) {
 
 	client, err := redisaccess.InitRedis("localhost", "")
 	if err != nil {
-		writeLog("Error in Redis: " + err.Error())
+		writeLog("Error in Redis: "+err.Error(), true)
 	}
 	key := "iptraf::" + device.Day + "::" + device.Mac
 	_, found, err := redisaccess.GetValue(key)
 	if !found {
 		writeLog(fmt.Sprintf("%s has exceeded limit %s ",
-			device.Mac, codeutils.FormatFloatCommas(float64(device.Total), 0)))
+			device.Mac, codeutils.FormatFloatCommas(float64(device.Total), 0)), true)
 		_, errStr := shell("/sbin/iptables -A INPUT -j DROP -m mac --mac-source " + device.Mac)
-		writeLog("Blocking: " + device.Mac + " " + errStr)
+		writeLog("Blocking: "+device.Mac+" "+errStr, true)
 		if errStr == "" {
 			defer client.Close()
 			redisaccess.SetValue(key, device, time.Hour*12)
@@ -255,7 +272,7 @@ func blockMac(device DeviceType) (err error) {
 			err = errors.New(errStr)
 		}
 	} else {
-		writeLog("----------------^-------     Already blocked")
+		writeLog("----------------^-------     Already blocked", true)
 	}
 	return
 }
