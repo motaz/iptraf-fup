@@ -262,6 +262,7 @@ func blockMac(device DeviceType) (err error) {
 	if !found {
 		writeLog(fmt.Sprintf("%s has exceeded limit %s ",
 			device.Mac, codeutils.FormatFloatCommas(float64(device.Total), 0)), true)
+		shell("/sbin/iptables -A FORWARD -j DROP -m mac --mac-source " + device.Mac)
 		_, errStr := shell("/sbin/iptables -A INPUT -j DROP -m mac --mac-source " + device.Mac)
 		writeLog("Blocking: "+device.Mac+" "+errStr, true)
 		if errStr == "" {
